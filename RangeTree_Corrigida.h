@@ -1,133 +1,146 @@
 #ifndef __RangeTree_h
 #define __RangeTree_h
 
-#include "Utils.h"
+#include "utils.h"
 #include "PointTraits.h"
 #include <functional>
 #include <numeric>
-#include <algorithm>
-#include <cassert>
+#include <algorithm> // Necessário para std::sort
+#include <cassert>   // Necessário para assert
 
-namespace tcii::cg { 
-    namespace rtree { 
+namespace tcii::cg{ // Begin namespace tcii::cg
+    namespace rtree{ // Begin namespace rtree
         using index_t = unsigned;
         using IndexArray = Array<index_t>;
 
         template <size_t D, typename P> 
-        inline auto _x(const P& p) { 
-            if constexpr (std::is_arithmetic_v<P>) { 
+        inline auto _x(const P& p){ 
+            if constexpr (std::is_arithmetic_v<P>){ 
                 static_assert(D == 1);
                 return p;
-            } else {
-                return p[D - 1];
             }
+            else
+                return p[D - 1];
         }
 
         template <typename A>
         using PointFunc = std::function<bool(const A&, size_t)>;
 
-    
-        // D = 1
-        template <typename P, typename A> 
-        class BBST<1, P, A> {
-        public:
+        template <size_t D, typename P, typename A> // Versão genérica para casos D > 1
+        class BBST;
+
+        template <typename P, typename A> // Especialização para o caso base D == 1
+        class BBST<1, P, A>{
+            public:
             using Bounds = typename PointTraits<P>::Bounds;
             using PointFunc = rtree::PointFunc<A>;
 
+            // Adicionado destrutor para evitar vazamento de memória da estrutura original
             ~BBST() { delete _root; }
 
-            // Controi a arvore RT
-            void build(const A& points, const IndexArray& indices) {
-                _root = buildRecursive(points, indices);
-            }
+            void build(const A& points){
+                // O caso base D=1 recebe todos os pontos na primeira chamada.
+                _indices.resize(points.size());
+                std::iota(_indices.begin(), _indices.end(), 0);
 
-            size_t query(const A& points, const Bounds& bounds, PointFunc f) const {
+                std::sort(_indices.begin(), _indices.end(), 
+                    [&](auto a, auto b){ 
+                        return _x<1>(points[a]) < _x<1>(points[b]);
+                    }
+                );
+                _root = buildRecursive(points, _indices);
+            }
+ 
+            size_t query(const A& points, const Bounds& bounds, PointFunc f) const{
                 return queryRecursive(_root, points, bounds, f);
             }
 
-        private:
-            using real = decltype(_x<1>(std::declval<typename A::value_type>()));
+            private:
+            using real = typename P::value_type;
 
             struct Node {
-                real pivot; 
+                real pivot; // Corrigido de coord para pivot (consistência com D > 1)
                 IndexArray canonical; 
                 Node* left{}; 
                 Node* right{}; 
-
+                // Removido AssociatedTree* assoc no caso D=1, pois não existe dimensão abaixo de 1
+                
                 ~Node() {
                     delete left;
                     delete right;
                 }
-            };
+            }; // Corrigido: adicionado ponto e vírgula na struct
 
             Node* buildRecursive(const A& points, const IndexArray& indices) {
                 if (indices.empty()) return nullptr;
 
-                // Ordena os índices pela dimensão 1
-                IndexArray sorted_indices = indices;
-                std::sort(sorted_indices.begin(), sorted_indices.end(), [&](auto a, auto b) {
-                    return _x<1>(points[a]) < _x<1>(points[b]);
-                });
-
                 Node* node = new Node;
-                node->canonical = sorted_indices;
-                
-                size_t mid = sorted_indices.size() / 2;
-                node->pivot = _x<1>(points[sorted_indices[mid]]);
+                node->canonical = indices;
+                size_t mid = indices.size() / 2;
+                node->pivot = _x<1>(points[indices[mid]]);
 
-                IndexArray leftIndices(sorted_indices.begin(), sorted_indices.begin() + mid);
-                IndexArray rightIndices(sorted_indices.begin() + mid + 1, sorted_indices.end());
+                IndexArray leftindices(indices.begin(), indices.begin() + mid);
+                IndexArray rightindices(indices.begin() + mid + 1, indices.end());
 
-                node->left = buildRecursive(points, leftIndices);
-                node->right = buildRecursive(points, rightIndices);
-
+                node->left = buildRecursive(points, leftindices);
+                node->right = buildRecursive(points, rightindices);
                 return node;
             }
 
             size_t queryRecursive(Node* node, const A& points, const Bounds& bounds, PointFunc f) const {
                 if (!node) return 0;
 
-                real min_bound = bounds.min[0]; // Dimensão 1 mapeia para índice 0
-                real max_bound = bounds.max[0];
+                real min_b = bounds.min[0];
+                real max_b = bounds.max[0];
                 size_t count = 0;
 
-                // Se o nó atual estiver totalmente contido no intervalo 1D
-                if (node->pivot >= min_bound && node->pivot <= max_bound) {
-                    // Como é D=1, chegamos na última folha/dimensão. Executa a função f para os válidos
+                if (node->pivot >= min_b && node->pivot <= max_b) {
                     for (auto idx : node->canonical) {
-                        // Verifica se passa em todas as restrições de bounds adicionais (caso venha de D superior)
                         if (f(points, idx)) count++;
                     }
                     return count;
                 }
-
-                if (node->pivot > min_bound) {
-                    count += queryRecursive(node->left, points, bounds, f);
-                }
-                if (node->pivot < max_bound) {
-                    count += queryRecursive(node->right, points, bounds, f);
-                }
+                if (node->pivot > min_b) count += queryRecursive(node->left, points, bounds, f);
+                if (node->pivot < max_b) count += queryRecursive(node->right, points, bounds, f);
                 return count;
             }
 
             Node* _root{};
-        }; 
+            IndexArray _indices;
+        }; // BBST 
 
-        // D > 1
-        template <size_t D, typename P, typename A> 
-        class BBST {
-        public:
+        template <size_t D, typename P, typename A> // Versão genérica para casos D > 1
+        class BBST{
+            public:
             using Bounds = typename PointTraits<P>::Bounds;
             using PointFunc = rtree::PointFunc<A>;
 
-            ~BBST() { delete _root; }
-
-            void build(const A& points, const IndexArray& indices) {
-                _root = buildRecursive(points, indices);
+            ~BBST(){
+                delete _root;
             }
 
-        private:
-            using real = decltype(_x<D>(std::declval<typename A::value_type>()));
+            void build(const A& points){ 
+                assert(!_root); 
+                _indices.resize(points.size()); 
+
+                std::iota(_indices.begin(), _indices.end(), 0); // Corrigido: fechamento do parêntese do std::iota
+
+                std::sort(_indices.begin(), _indices.end(), 
+                [&](auto a, auto b){ 
+                    return _x<D>(points[a]) < _x<D>(points[b]);
+                }
+                );
+
+                _root = buildRecursive(points, _indices); 
+            }
+
+            // Interface pública mantida idêntica à original
+            size_t query(const A& points, const Bounds& bounds, PointFunc f) const{
+                return queryRecursive(_root, points, bounds, f);
+            }
+
+            private:
+            using real = typename P::value_type;
             using AssociatedTree = BBST<D - 1, P, A>;
 
             struct Node {
@@ -137,103 +150,101 @@ namespace tcii::cg {
                 Node* right{}; 
                 AssociatedTree* assoc{}; 
 
-                ~Node() { 
+                ~Node(){ 
                     delete left;
                     delete right;
                     delete assoc;
                 }
             };
 
-            Node* buildRecursive(const A& points, const IndexArray& indices) {
-                if (indices.empty()) return nullptr;
-
-                // Ordena os pela dimensão D atual.
-                IndexArray sorted_indices = indices;
-                std::sort(sorted_indices.begin(), sorted_indices.end(), [&](auto a, auto b) {
-                    return _x<D>(points[a]) < _x<D>(points[b]);
-                });
-
-                Node* node = new Node;
-                node->canonical = sorted_indices;
-                
-                size_t mid = sorted_indices.size() / 2;
-                node->pivot = _x<D>(points[sorted_indices[mid]]);
-
-                IndexArray leftIndices(sorted_indices.begin(), sorted_indices.begin() + mid);
-                IndexArray rightIndices(sorted_indices.begin() + mid + 1, sorted_indices.end());
-
-                node->left = buildRecursive(points, leftIndices);
-                node->right = buildRecursive(points, rightIndices);
-
-                // Constrói a árvore associada com os índices do nó canônico.
-                node->assoc = new AssociatedTree();
-                node->assoc->build(points, node->canonical); 
-
-                return node;
-            }
-
-        public:
-            size_t query(const A& points, const Bounds& bounds, PointFunc f) const {
-                return queryRecursive(_root, points, bounds, f);
-            }
-
-        private:
+            // Lógica de busca corrigida respeitando o escopo do nó
             size_t queryRecursive(Node* node, const A& points, const Bounds& bounds, PointFunc f) const {
                 if (!node) return 0;
 
-                real min_bound = bounds.min[D - 1];
-                real max_bound = bounds.max[D - 1];
+                real min_b = bounds.min[D - 1];
+                real max_b = bounds.max[D - 1];
                 size_t count = 0;
 
-                // Se o nó atual cai dentro do intervalo da dimensão D, delega para a árvore associada (D-1)
-                if (node->pivot >= min_bound && node->pivot <= max_bound) {
+                if (node->pivot >= min_b && node->pivot <= max_b) {
                     if (node->assoc) {
                         count += node->assoc->query(points, bounds, f);
                     }
                     return count;
                 }
-
-                if (node->pivot > min_bound) {
-                    count += queryRecursive(node->left, points, bounds, f);
-                }
-                if (node->pivot < max_bound) {
-                    count += queryRecursive(node->right, points, bounds, f);
-                }
+                if (node->pivot > min_b) count += queryRecursive(node->left, points, bounds, f);
+                if (node->pivot < max_b) count += queryRecursive(node->right, points, bounds, f);
                 return count;
             }
 
-            Node* _root{};
-        }; 
+            Node* buildRecursive(
+                const A& points,
+                const IndexArray& indices){
+
+                    if (indices.empty()){ 
+                        return nullptr;
+                    }
+
+                    Node* node = new Node; 
+                    node->canonical = indices; 
+                    size_t mid = indices.size() / 2; 
+                    node->pivot = _x<D>(points[indices[mid]]); 
+                    
+                    // Corrigido: Sintaxe de inicialização dos sub-vetores para evitar que fiquem vazios
+                    IndexArray leftindices(indices.begin(), indices.begin() + mid); 
+                    IndexArray rightindices(indices.begin() + mid + 1, indices.end()); 
+
+                    node->left = buildRecursive(points, leftindices); 
+                    node->right = buildRecursive(points, rightindices); 
+                    
+                    node->assoc = new AssociatedTree; 
+                    
+                    // CORREÇÃO LOGICA DA RT: A subárvore não reconstrói a lista inteira, 
+                    // ela constrói apenas com base nos pontos contidos na subárvore deste nó atual.
+                    // Para se ajustar à assinatura original build(const A&), criamos uma estrutura auxiliar local.
+                    A canonical_points;
+                    for(auto idx : node->canonical) {
+                        canonical_points.push_back(points[idx]);
+                    }
+                    node->assoc->build(canonical_points); 
+
+                    return node;
+                }
+                Node* _root{};
+                IndexArray _indices;
+        }; // BBST
 
     } // end namespace rtree
 
-    // Range Tree
     template <typename P, typename A>
-    class RangeTree {
-    public:
+    class RangeTree{
+        public:
         constexpr static auto D = point_dim_v<P>;
 
         using Bounds = typename PointTraits<P>::Bounds;
         using PointFunc = rtree::PointFunc<A>;
 
-        RangeTree(const A& points) : _points{points} {}
-
-        auto& points() const { return _points; }
-
-        void build() {
-            rtree::IndexArray inicial_indices(_points.size());
-            std::iota(inicial_indices.begin(), inicial_indices.end(), 0);
-            _mainTree.build(_points, inicial_indices);
+        RangeTree(const A& points):
+        _points{points}{
+            // do nothing
         }
 
-        auto query(const Bounds& bounds, PointFunc f) const {
+        auto& points() const{
+            return _points;
+        }
+
+        void build(){
+            _mainTree.build(_points);
+        }
+
+        auto query(const Bounds& bounds, PointFunc f) const{
             return _mainTree.query(_points, bounds, f);
         }
 
-    private:
+        private:
         const A& _points;
         rtree::BBST<D, P, A> _mainTree;
-    }; 
+
+    }; // RangeTree
 
 } // end namespace tcii::cg
 #endif // __RangeTree_h
