@@ -6,10 +6,6 @@
 #include <cstdlib>
 #include <chrono>
 
-// ============================================================================
-// [1] DEFINIÇÃO DOS TIPOS DE PONTOS E ESPECIALIZAÇÕES DO POINTTRAITS
-// ============================================================================
-
 struct Ponto2D {
     using value_type = double;
     double coords[2];
@@ -38,24 +34,19 @@ namespace tcii::cg {
 using PointArray2D = tcii::cg::Array<Ponto2D>;
 using PointArray3D = tcii::cg::Array<Ponto3D>;
 
-// ============================================================================
-// [2] PROCESSO PRINCIPAL COM ISOLAMENTO DE ESCOPO
-// ============================================================================
 int main(int argc, char** argv) {
     std::printf("==================================================================\n");
-    std::printf("     BENCHMARK CORRIGIDO (SEM ALTERAR UTILS.H)                     \n");
+    std::printf("                       INICIO DOS TESTES                     \n");
     std::printf("==================================================================\n");
 
-    constexpr size_t TOTAL_PONTOS = 9999999;
+    constexpr size_t TOTAL_PONTOS = 200;
     auto callback_dummy = [](const auto&, size_t) -> bool { return true; };
 
-    // ------------------------------------------------------------------------
-    // FASE 1: TESTE EM 2D (Isolado em um bloco de escopo próprio)
-    // ------------------------------------------------------------------------
+    // Dimensao 2d
     {
-        std::printf("\n--- BENCHMARK 2D ($R^2$) com %zu pontos ---\n", TOTAL_PONTOS);
+        std::printf("\n--- DIMENSAO 2D COM %zu PONTOS ---\n", TOTAL_PONTOS);
 
-        // O uso de = {} zera toda a estrutura na memória prevenindo vazamentos
+        // Previnir vazamentos
         typename tcii::cg::PointTraits<Ponto2D>::Bounds limites_espaco = {};
         limites_espaco[0][0] = -5000.0; limites_espaco[1][0] = 5000.0; // X
         limites_espaco[0][1] = -5000.0; limites_espaco[1][1] = 5000.0; // Y
@@ -67,9 +58,9 @@ int main(int argc, char** argv) {
         tcii::cg::RangeTree<Ponto2D, PointArray2D> arvore(pontos);
         arvore.build();
         auto fim_build = std::chrono::high_resolution_clock::now();
-        std::printf("  [Construção]: %.2f ms\n", std::chrono::duration<double, std::milli>(fim_build - inicio_build).count());
+        std::printf("\n  [Construção]: %.2f ms\n", std::chrono::duration<double, std::milli>(fim_build - inicio_build).count());
 
-        // Janela de busca restrita ao centro (captura ~4% do volume total do espaço)
+        // Busca
         typename tcii::cg::PointTraits<Ponto2D>::Bounds caixa_busca = {};
         caixa_busca[0][0] = -1000.0; caixa_busca[1][0] = 1000.0;
         caixa_busca[0][1] = -1000.0; caixa_busca[1][1] = 1000.0;
@@ -78,15 +69,15 @@ int main(int argc, char** argv) {
         size_t encontrados = arvore.query(caixa_busca, callback_dummy);
         auto fim_query = std::chrono::high_resolution_clock::now();
 
-        std::printf("  [Consulta]:    %.4f ms (Pontos encontrados: %zu / %zu)\n", 
+        std::printf("  [Consulta]: %.4f ms \n  [Pontos encontrados]: %zu / %zu\n", 
                     std::chrono::duration<double, std::milli>(fim_query - inicio_query).count(), encontrados, TOTAL_PONTOS);
+        
+        std::printf("\n=======================FIM DA DIMENSAO 2D=========================");
     }
 
-    // ------------------------------------------------------------------------
-    // FASE 2: TESTE EM 3D (Isolado em seu próprio bloco de escopo)
-    // ------------------------------------------------------------------------
+    // Dimensao 3d
     {
-        std::printf("\n--- BENCHMARK 3D ($R^3$) com %zu pontos ---\n", TOTAL_PONTOS);
+        std::printf("\n\n--- DIMENSAO 3D COM %zu PONTOS ---\n", TOTAL_PONTOS);
 
         typename tcii::cg::PointTraits<Ponto3D>::Bounds limites_espaco = {};
         limites_espaco[0][0] = -1000.0; limites_espaco[1][0] = 1000.0; // X
@@ -100,9 +91,9 @@ int main(int argc, char** argv) {
         tcii::cg::RangeTree<Ponto3D, PointArray3D> arvore(pontos);
         arvore.build();
         auto fim_build = std::chrono::high_resolution_clock::now();
-        std::printf("  [Construção]: %.2f ms\n", std::chrono::duration<double, std::milli>(fim_build - inicio_build).count());
+        std::printf("\n  [Construção]: %.2f ms\n", std::chrono::duration<double, std::milli>(fim_build - inicio_build).count());
 
-        // Janela de busca restrita (captura ~1.5% do volume total do hipervolume)
+        // Busca
         typename tcii::cg::PointTraits<Ponto3D>::Bounds caixa_busca = {};
         caixa_busca[0][0] = -250.0; caixa_busca[1][0] = 250.0;
         caixa_busca[0][1] = -250.0; caixa_busca[1][1] = 250.0;
@@ -112,12 +103,13 @@ int main(int argc, char** argv) {
         size_t encontrados = arvore.query(caixa_busca, callback_dummy);
         auto fim_query = std::chrono::high_resolution_clock::now();
 
-        std::printf("  [Consulta]:    %.4f ms (Pontos encontrados: %zu / %zu)\n", 
+        std::printf("  [Consulta]: %.4f ms  \n  [Pontos encontrados]: %zu / %zu\n", 
                     std::chrono::duration<double, std::milli>(fim_query - inicio_query).count(), encontrados, TOTAL_PONTOS);
     }
+    std::printf("\n=======================FIM DA DIMENSAO 3D=========================");
 
     std::printf("\n==================================================================\n");
-    std::printf("                     FIM DOS TESTES DE VOLUMETRIA                   \n");
+    std::printf("                       FIM DOS TESTES                  \n");
     std::printf("==================================================================\n");
     return EXIT_SUCCESS;
 }
