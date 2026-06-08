@@ -32,13 +32,14 @@ main()
   puts("iterate():");
   t.iterate(print);
   puts("Range-based for:");
-  for (auto i : t)
+  for (auto i : t){
     print(i);
+  }
     puts("Find:");
 
-    if (auto it = t.find(7); it != t.end())
+    if (auto it = t.find(7); it != t.end()){
       printf("Encontrado: %d\n", *it);
-
+    }
     if (auto it = t.find(100); it == t.end())
       puts("100 nao encontrado");
 
