@@ -284,13 +284,8 @@ Tree<T, C>::begin() const -> iterator
 
 template <typename T, typename C>
 auto
-Tree<T, C>::find(const T& value) const -> iterator
-{
-  // INSERT ABAIXO
-  template <typename T, typename C>
-auto
-Tree<T, C>::find(const T& value) const -> iterator
-{
+Tree<T, C>::find(const T& value) const -> iterator{
+// INSERT FIND ABAIXO
   auto node = _root;
 
   while (node)
@@ -302,10 +297,7 @@ Tree<T, C>::find(const T& value) const -> iterator
     else
       return iterator{node};
   }
-
-  return end();
-}
-  // INSERT ENCIMA
+  // INSERT FIND ENCIMA
   return end();
 }
 
