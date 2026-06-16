@@ -1,0 +1,30 @@
+# Arquivo OBJ de um Cubo Fechado Perfeito (Sem Bordas)
+# 8 Vertices, 12 Faces Triangulares
+
+v 0.0 0.0 0.0
+v 1.0 0.0 0.0
+v 1.0 1.0 0.0
+v 0.0 1.0 0.0
+v 0.0 0.0 1.0
+v 1.0 0.0 1.0
+v 1.0 1.0 1.0
+v 0.0 1.0 1.0
+
+# Face Inferior
+f 1 3 2
+f 1 4 3
+# Face Superior
+f 5 6 7
+f 5 7 8
+# Face Frontal
+f 1 2 6
+f 1 6 5
+# Face Direita
+f 2 3 7
+f 2 7 6
+# Face Traseira
+f 3 4 8
+f 3 8 7
+# Face Esquerda
+f 4 1 5
+f 4 5 8
